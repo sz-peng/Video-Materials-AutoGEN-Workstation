@@ -425,6 +425,19 @@ async function generateCopywriting() {
             })
         });
         
+        if (response.status === 400) {
+            try {
+                const errorData = await response.json();
+                if (errorData && errorData.res === '无法提取视频字幕') {
+                    showNotification('找不到字幕，无法提取视频字幕，换个视频吧', 'error');
+                    return;
+                }
+            } catch (parseError) {
+                console.error('解析400响应失败:', parseError);
+            }
+            throw new Error('HTTP error! status: 400');
+        }
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
