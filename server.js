@@ -22,6 +22,29 @@ function loadConfig() {
 
 const config = loadConfig();
 
+// 检测当前是否处于无桌面环境（如 Docker 容器）
+function isHeadlessEnvironment() {
+    if (process.env.HEADLESS === '1' || process.env.DISABLE_FOLDER_OPEN === '1') {
+        return true;
+    }
+
+    try {
+        // 常见容器标识文件
+        if (fs.existsSync('/.dockerenv') || fs.existsSync('/run/.containerenv')) {
+            return true;
+        }
+    } catch (error) {
+        return true;
+    }
+
+    // Linux 无显示变量时大概率没有桌面
+    if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+        return true;
+    }
+
+    return false;
+}
+
 // 下载文件辅助函数
 function downloadFile(url, dest) {
     return new Promise((resolve, reject) => {
@@ -235,7 +258,19 @@ const server = http.createServer((req, res) => {
                 if (!fs.existsSync(ttsFolder)) {
                     fs.mkdirSync(ttsFolder, { recursive: true });
                 }
-                
+
+                // 无桌面环境（如 Docker）直接返回路径，避免 xdg-open 等命令失败
+                if (isHeadlessEnvironment()) {
+                    console.log(`🗂️ 运行在无桌面环境，已返回路径: ${ttsFolder}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        message: '容器/无桌面环境，请在宿主机手动打开此路径',
+                        path: ttsFolder
+                    }));
+                    return;
+                }
+
                 // 使用系统命令打开文件夹
                 const command = process.platform === 'win32' 
                     ? `explorer "${ttsFolder}"` 
@@ -294,6 +329,17 @@ const server = http.createServer((req, res) => {
                     res.end(JSON.stringify({
                         success: false,
                         message: '项目路径不存在'
+                    }));
+                    return;
+                }
+
+                if (isHeadlessEnvironment()) {
+                    console.log(`🗂️ 运行在无桌面环境，已返回路径: ${resolvedPath}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        message: '容器/无桌面环境，请在宿主机手动打开此路径',
+                        path: resolvedPath
                     }));
                     return;
                 }
@@ -861,7 +907,7 @@ const server = http.createServer((req, res) => {
                     }));
                     return;
                 }
-                
+
                 // 提取文件所在的目录
                 const folderPath = path.dirname(filePath);
                 
@@ -869,11 +915,22 @@ const server = http.createServer((req, res) => {
                     res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ 
                         success: false, 
-                        message: '目录不存在' 
+                    message: '目录不存在' 
+                }));
+                return;
+            }
+                
+                if (isHeadlessEnvironment()) {
+                    console.log(`🗂️ 运行在无桌面环境，已返回路径: ${folderPath}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ 
+                        success: true,
+                        message: '容器/无桌面环境，请在宿主机手动打开此路径',
+                        path: folderPath
                     }));
                     return;
                 }
-                
+
                 // 使用系统命令打开文件夹
                 const command = process.platform === 'win32' 
                     ? `explorer "${folderPath}"` 

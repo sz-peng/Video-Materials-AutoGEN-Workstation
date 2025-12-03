@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  video-workstation:
+    build: .
+    container_name: video-workstation
+    ports:
+      - "8765:8765"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      # 挂载配置文件（请先根据 env.example.yaml 创建并填写 env.yaml）
+      - ./env.yaml:/app/env.yaml:ro
+      # 业务数据存储目录，配置 Default-Project-Root 指向此目录
+      - ./data:/data
+    restart: unless-stopped
